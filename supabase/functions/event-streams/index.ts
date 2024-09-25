@@ -12,9 +12,9 @@ Deno.serve(async (req) => {
     Deno.env.get('SUPABASE_URL')!,
     Deno.env.get('SUPABASE_ANON_KEY')!,
     {
-			db: {
-				schema: 'reporting',
-			},
+		db: {
+			schema: 'reporting',
+		},
     },
   )
   const response = await req.json()
@@ -23,8 +23,6 @@ Deno.serve(async (req) => {
 		const payload: TaskRouterPayload = data.payload;
 		const parameters: VoiceParameters = data.request?.parameters;
 		const attributes = payload ? JSON.parse(payload.task_attributes) : {};
-
-		console.log(type, data);
 
 		if (payload && payload.workflow_name !== 'Voicemail') {
 			console.log(payload);
@@ -40,9 +38,13 @@ Deno.serve(async (req) => {
 					.update({
 						talk_time: duration,
 					})
-					.eq('id', attributes.call_sid)
-					.then(() => {
-						console.log('updated', attributes.call_sid);
+					.eq('id', attributes.direction === 'outbound' ? payload.task_sid : attributes.call_sid)
+					.then(({data, error}) => {
+						if (error) {
+							console.error(error)
+						} else {
+							console.log(data);
+						}
 					});
 				break;
 			case 'com.twilio.taskrouter.task.canceled':
@@ -54,16 +56,20 @@ Deno.serve(async (req) => {
 						abandon_time: payload.task_age,
 						outcome: payload.task_canceled_reason,
 					})
-					.eq('id', attributes.call_sid)
+					.eq('id', attributes.direction === 'outbound' ? payload.task_sid : attributes.call_sid)
 					.then(({ data, error }) => {
-						console.log('updated', attributes.call_sid, data, error);
+						if (error) {
+							console.error(error)
+						} else {
+							console.log(data);
+						}
 					});
 				break;
 			case 'com.twilio.taskrouter.task.created':
 				supabase
 					.from('conversations')
 					.upsert({
-						id: attributes.call_sid,
+						id: attributes.direction === 'outbound' ? payload.task_sid : attributes.call_sid,
 						phone_number: attributes.from,
 						direction: attributes.direction,
 						date: new Date(payload.timestamp).toISOString(),
@@ -74,7 +80,11 @@ Deno.serve(async (req) => {
 						company_id: attributes.companyId ? Number(attributes.companyId) : null,
 					})
 					.then(({ data, error }) => {
-						console.log(data, error);
+						if (error) {
+							console.error(error)
+						} else {
+							console.log(data);
+						}
 					});
 				break;
 			case 'com.twilio.taskrouter.reservation.accepted':
@@ -88,9 +98,13 @@ Deno.serve(async (req) => {
 						agent: payload.worker_sid,
 						queue: payload.task_queue_name,
 					})
-					.eq('id', attributes.call_sid)
+					.eq('id', attributes.direction === 'outbound' ? payload.task_sid : attributes.call_sid)
 					.then(({ data, error }) => {
-						console.log(data, error);
+						if (error) {
+							console.error(error)
+						} else {
+							console.log(data);
+						}
 					});
 				break;
 			case 'com.twilio.voice.twiml.enqueue.finished':
@@ -101,8 +115,11 @@ Deno.serve(async (req) => {
 						queue_time: Number(parameters.QueueTime),
 					})
 					.then(({ data, error }) => {
-						console.log(data, error);
-						console.log('enqueue.finished', JSON.stringify(parameters));
+						if (error) {
+							console.error(error)
+						} else {
+							console.log(data);
+						}
 					});
 
 				break;
